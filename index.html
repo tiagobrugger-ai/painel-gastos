@@ -1,0 +1,1213 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Painel de Gastos Municipais — TCE-SP</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+/* ============================================================
+   TOKENS — Paleta institucional Estado de SP / TCE-SP
+   ============================================================ */
+:root {
+  --azul:        #003D7C;
+  --azul-medio:  #0057A8;
+  --azul-claro:  #E8F0F9;
+  --dourado:     #C8960C;
+  --dourado-bg:  #FDF6E3;
+  --verde:       #1B6B3A;
+  --verde-bg:    #E8F5EE;
+  --laranja:     #C04A00;
+  --laranja-bg:  #FFF0E8;
+  --cinza-escuro:#2C3E50;
+  --cinza-medio: #6B7A8D;
+  --cinza-claro: #E8ECF0;
+  --cinza-fundo: #F4F6F9;
+  --branco:      #FFFFFF;
+  --borda:       #D1D9E0;
+
+  /* Chart colors */
+  --chart-emp:  #0057A8;
+  --chart-liq:  #C8960C;
+  --chart-pago: #1B6B3A;
+
+  --radius: 8px;
+  --sombra: 0 1px 3px rgba(0,0,0,.08), 0 4px 12px rgba(0,0,0,.05);
+}
+
+/* ============================================================
+   RESET E BASE
+   ============================================================ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  background: var(--cinza-fundo);
+  color: var(--cinza-escuro);
+  font-size: 14px;
+  line-height: 1.5;
+  min-height: 100vh;
+}
+
+/* ============================================================
+   HEADER
+   ============================================================ */
+header {
+  background: var(--azul);
+  color: var(--branco);
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  height: 56px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 2px 8px rgba(0,0,0,.2);
+}
+
+.header-marca {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.header-brasao {
+  width: 32px;
+  height: 32px;
+  background: var(--dourado);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.header-titulo {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: .01em;
+}
+
+.header-subtitulo {
+  font-size: 11px;
+  opacity: .7;
+  margin-top: 1px;
+}
+
+.header-sep { flex: 1; }
+
+.header-atualizado {
+  font-size: 11px;
+  opacity: .6;
+  text-align: right;
+}
+
+/* ============================================================
+   CONTROLES DE SELEÇÃO
+   ============================================================ */
+.controles {
+  background: var(--branco);
+  border-bottom: 1px solid var(--borda);
+  padding: 12px 24px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.controles label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--cinza-medio);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+
+.controles select {
+  height: 36px;
+  padding: 0 32px 0 12px;
+  border: 1.5px solid var(--borda);
+  border-radius: var(--radius);
+  background: var(--branco);
+  color: var(--cinza-escuro);
+  font-size: 14px;
+  font-family: inherit;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='none'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%236B7A8D' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  transition: border-color .15s;
+}
+
+.controles select:focus {
+  outline: none;
+  border-color: var(--azul-medio);
+  box-shadow: 0 0 0 3px rgba(0,87,168,.12);
+}
+
+.legenda-ciclo {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.legenda-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--cinza-medio);
+}
+
+.legenda-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* ============================================================
+   MAIN LAYOUT
+   ============================================================ */
+main {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.secao-titulo {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--cinza-medio);
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.secao-titulo::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--borda);
+}
+
+/* ============================================================
+   CAMADA 1 — KPI CARDS
+   ============================================================ */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.kpi-card {
+  background: var(--branco);
+  border: 1px solid var(--borda);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+  cursor: default;
+  position: relative;
+  transition: box-shadow .15s, border-color .15s;
+}
+
+.kpi-card:hover {
+  box-shadow: var(--sombra);
+  border-color: var(--azul-medio);
+}
+
+.kpi-card.ano-atual {
+  border-left: 3px solid var(--dourado);
+}
+
+.kpi-ano {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--cinza-medio);
+  margin-bottom: 6px;
+}
+
+.kpi-valor {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--azul);
+  letter-spacing: -.02em;
+  line-height: 1;
+}
+
+.kpi-valor .kpi-unidade {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--azul-medio);
+}
+
+.kpi-variacao {
+  margin-top: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.kpi-variacao.pos { color: var(--laranja); }
+.kpi-variacao.neg { color: var(--verde); }
+.kpi-variacao.neu { color: var(--cinza-medio); }
+
+.kpi-vazio {
+  background: var(--cinza-fundo);
+  border-style: dashed;
+}
+
+.kpi-vazio .kpi-valor {
+  font-size: 14px;
+  color: var(--cinza-medio);
+  font-weight: 400;
+}
+
+/* Tooltip flutuante do ciclo financeiro */
+.kpi-tooltip {
+  display: none;
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  background: var(--cinza-escuro);
+  color: var(--branco);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  width: 220px;
+  z-index: 200;
+  box-shadow: 0 4px 16px rgba(0,0,0,.2);
+  pointer-events: none;
+}
+
+.kpi-card:hover .kpi-tooltip {
+  display: block;
+}
+
+.tooltip-linha {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 3px 0;
+  font-size: 12px;
+  border-bottom: 1px solid rgba(255,255,255,.08);
+}
+
+.tooltip-linha:last-child { border-bottom: none; }
+
+.tooltip-label { color: rgba(255,255,255,.65); }
+.tooltip-valor { font-weight: 600; }
+
+.tooltip-pct {
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  margin-left: 6px;
+}
+
+.pct-emp  { background: rgba(0,87,168,.3); color: #7BB5F0; }
+.pct-liq  { background: rgba(200,150,12,.3); color: #F0C845; }
+.pct-pago { background: rgba(27,107,58,.3); color: #5FC28A; }
+
+/* ============================================================
+   CAMADA 2 — GRÁFICOS MENSAIS
+   ============================================================ */
+.graficos-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.grafico-card {
+  background: var(--branco);
+  border: 1px solid var(--borda);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+  overflow: hidden;
+}
+
+.grafico-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 12px;
+}
+
+.grafico-ano {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--azul);
+}
+
+.grafico-total-label {
+  font-size: 11px;
+  color: var(--cinza-medio);
+  margin-right: 4px;
+}
+
+.grafico-total-valor {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--cinza-escuro);
+}
+
+.grafico-container {
+  height: 140px;
+  position: relative;
+}
+
+/* ============================================================
+   CAMADA 3 — FUNÇÕES DE GOVERNO
+   ============================================================ */
+.funcoes-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.funcao-item {
+  background: var(--branco);
+  border: 1px solid var(--borda);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  cursor: pointer;
+  transition: border-color .15s, box-shadow .15s;
+  position: relative;
+}
+
+.funcao-item:hover,
+.funcao-item.ativo {
+  border-color: var(--azul-medio);
+  box-shadow: var(--sombra);
+}
+
+.funcao-item.ativo {
+  background: var(--azul-claro);
+}
+
+.funcao-topo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.funcao-nome {
+  font-size: 13px;
+  font-weight: 600;
+  flex: 1;
+  color: var(--cinza-escuro);
+}
+
+.funcao-valores {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.funcao-valor-item {
+  text-align: right;
+}
+
+.funcao-valor-label {
+  font-size: 10px;
+  color: var(--cinza-medio);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+
+.funcao-valor-num {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.v-emp  { color: var(--azul); }
+.v-liq  { color: var(--dourado); }
+.v-pago { color: var(--verde); }
+
+/* Barra de progresso com 3 segmentos */
+.funcao-barra-wrap {
+  height: 6px;
+  background: var(--cinza-claro);
+  border-radius: 3px;
+  overflow: hidden;
+  position: relative;
+}
+
+.funcao-barra-pago {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  background: var(--verde);
+  border-radius: 3px;
+  transition: width .4s ease;
+}
+
+.funcao-barra-liq {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  background: var(--dourado);
+  border-radius: 3px;
+  transition: width .4s ease;
+}
+
+/* ============================================================
+   CAMADA 4 — TABELA DE EMPENHOS
+   ============================================================ */
+.empenhos-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.empenhos-filtro-ativo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--azul-claro);
+  border: 1px solid var(--azul-medio);
+  border-radius: 20px;
+  padding: 4px 12px;
+  font-size: 12px;
+  color: var(--azul-medio);
+  font-weight: 600;
+}
+
+.empenhos-filtro-ativo button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--azul-medio);
+  font-size: 14px;
+  line-height: 1;
+  padding: 0;
+}
+
+.tabela-wrap {
+  background: var(--branco);
+  border: 1px solid var(--borda);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+thead th {
+  background: var(--azul);
+  color: var(--branco);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  padding: 10px 12px;
+  text-align: left;
+  white-space: nowrap;
+}
+
+thead th.num { text-align: right; }
+
+tbody tr {
+  border-bottom: 1px solid var(--cinza-claro);
+  transition: background .1s;
+}
+
+tbody tr:last-child { border-bottom: none; }
+
+tbody tr:hover { background: var(--cinza-fundo); }
+
+tbody td {
+  padding: 9px 12px;
+  font-size: 12px;
+  vertical-align: middle;
+}
+
+td.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+td.emp-val  { color: var(--azul); }
+td.liq-val  { color: var(--dourado); }
+td.pago-val { color: var(--verde); }
+
+.badge-status {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.s-quitado   { background: var(--verde-bg);   color: var(--verde); }
+.s-liquidado { background: var(--dourado-bg);  color: var(--dourado); }
+.s-empenhado { background: var(--azul-claro);  color: var(--azul); }
+.s-em_aberto { background: var(--cinza-claro); color: var(--cinza-medio); }
+
+.td-descricao {
+  max-width: 280px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ============================================================
+   ESTADOS VAZIOS E LOADING
+   ============================================================ */
+.estado-vazio {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--cinza-medio);
+}
+
+.estado-vazio .icone { font-size: 32px; margin-bottom: 8px; }
+.estado-vazio p { font-size: 13px; }
+
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 40px;
+  color: var(--cinza-medio);
+  font-size: 13px;
+}
+
+.spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--cinza-claro);
+  border-top-color: var(--azul-medio);
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ============================================================
+   RESPONSIVO
+   ============================================================ */
+@media (max-width: 768px) {
+  main { padding: 16px; gap: 24px; }
+  .graficos-grid { grid-template-columns: 1fr; }
+  .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+  .controles { padding: 10px 16px; }
+  .legenda-ciclo { display: none; }
+  .funcao-valores { gap: 8px; }
+}
+
+@media (max-width: 480px) {
+  .kpi-grid { grid-template-columns: 1fr 1fr; }
+  .kpi-valor { font-size: 20px; }
+}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div class="header-marca">
+    <div class="header-brasao">⚖</div>
+    <div>
+      <div class="header-titulo">Gastos Municipais — Litoral Paulista</div>
+      <div class="header-subtitulo">Dados: TCE-SP · Tribunal de Contas do Estado de São Paulo</div>
+    </div>
+  </div>
+  <div class="header-sep"></div>
+  <div class="header-atualizado" id="hdr-atualizado">Carregando…</div>
+</header>
+
+<!-- CONTROLES -->
+<div class="controles">
+  <label for="sel-municipio">Município</label>
+  <select id="sel-municipio">
+    <option value="">Carregando…</option>
+  </select>
+
+  <label for="sel-ano">Ano de referência</label>
+  <select id="sel-ano">
+    <option value="todos">Todos os anos</option>
+    <option value="2026">2026</option>
+    <option value="2025">2025</option>
+    <option value="2024">2024</option>
+    <option value="2023">2023</option>
+    <option value="2022">2022</option>
+    <option value="2021">2021</option>
+    <option value="2020">2020</option>
+  </select>
+
+  <div class="legenda-ciclo">
+    <div class="legenda-item">
+      <div class="legenda-dot" style="background:var(--chart-emp)"></div>
+      Empenhado
+    </div>
+    <div class="legenda-item">
+      <div class="legenda-dot" style="background:var(--chart-liq)"></div>
+      Liquidado
+    </div>
+    <div class="legenda-item">
+      <div class="legenda-dot" style="background:var(--chart-pago)"></div>
+      Pago
+    </div>
+  </div>
+</div>
+
+<!-- CONTEÚDO PRINCIPAL -->
+<main id="main-content">
+  <div class="loading"><div class="spinner"></div> Carregando dados…</div>
+</main>
+
+<script>
+// ============================================================
+// CONFIGURAÇÃO
+// ============================================================
+const DATA_BASE = './data';
+const ANOS_DISPLAY = [2026, 2025, 2024, 2023, 2022, 2021, 2020];
+const MESES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+
+let estado = {
+  municipio: null,
+  anoFiltro: 'todos',
+  funcaoFiltro: null,
+  dados: {},
+  charts: {},
+};
+
+// ============================================================
+// FORMATAÇÃO
+// ============================================================
+function fmtBRL(v) {
+  if (v == null || isNaN(v)) return '—';
+  if (Math.abs(v) >= 1_000_000) return `R$ ${(v/1_000_000).toFixed(1).replace('.',',')} M`;
+  if (Math.abs(v) >= 1_000)     return `R$ ${Math.round(v/1_000).toLocaleString('pt-BR')} k`;
+  return `R$ ${v.toLocaleString('pt-BR', {minimumFractionDigits:0, maximumFractionDigits:0})}`;
+}
+
+function fmtBRLCompleto(v) {
+  if (v == null || isNaN(v)) return '—';
+  return `R$ ${v.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2})}`;
+}
+
+function fmtPct(v) {
+  if (v == null) return '';
+  return `${v > 0 ? '+' : ''}${v.toFixed(1)}%`;
+}
+
+// ============================================================
+// FETCH COM CACHE
+// ============================================================
+const cache = {};
+async function fetchJSON(url) {
+  if (cache[url]) return cache[url];
+  const r = await fetch(url);
+  if (!r.ok) return null;
+  const d = await r.json();
+  cache[url] = d;
+  return d;
+}
+
+// ============================================================
+// INICIALIZAÇÃO
+// ============================================================
+async function init() {
+  // Meta
+  const meta = await fetchJSON(`${DATA_BASE}/meta.json`);
+  if (meta) {
+    document.getElementById('hdr-atualizado').textContent =
+      `Atualizado em ${meta.gerado_em?.slice(0,10) || '—'}`;
+  }
+
+  // Municípios
+  const municipios = await fetchJSON(`${DATA_BASE}/municipios.json`);
+  if (!municipios || !municipios.length) {
+    renderErro('Não foi possível carregar a lista de municípios.');
+    return;
+  }
+
+  const sel = document.getElementById('sel-municipio');
+  sel.innerHTML = municipios.map(m =>
+    `<option value="${m.slug}">${m.nome}</option>`
+  ).join('');
+
+  sel.addEventListener('change', () => {
+    estado.municipio = sel.value;
+    estado.funcaoFiltro = null;
+    renderPainel();
+  });
+
+  document.getElementById('sel-ano').addEventListener('change', e => {
+    estado.anoFiltro = e.target.value;
+    estado.funcaoFiltro = null;
+    renderPainel();
+  });
+
+  estado.municipio = municipios[0].slug;
+  await renderPainel();
+}
+
+// ============================================================
+// CARREGA DADOS DO MUNICÍPIO
+// ============================================================
+async function carregarDados(slug) {
+  const [kpis, mensal, funcoes, empenhos] = await Promise.all([
+    fetchJSON(`${DATA_BASE}/${slug}_kpis.json`),
+    fetchJSON(`${DATA_BASE}/${slug}_mensal.json`),
+    fetchJSON(`${DATA_BASE}/${slug}_funcoes.json`),
+    fetchJSON(`${DATA_BASE}/${slug}_empenhos.json`),
+  ]);
+  return { kpis, mensal, funcoes, empenhos };
+}
+
+// ============================================================
+// RENDER PRINCIPAL
+// ============================================================
+async function renderPainel() {
+  const main = document.getElementById('main-content');
+  main.innerHTML = `<div class="loading"><div class="spinner"></div> Carregando…</div>`;
+
+  // Destruir charts anteriores
+  Object.values(estado.charts).forEach(c => c?.destroy());
+  estado.charts = {};
+
+  const slug = estado.municipio;
+  if (!slug) return;
+
+  const dados = await carregarDados(slug);
+  estado.dados = dados;
+
+  const anoFiltro = estado.anoFiltro;
+  const anosDisponiveis = ANOS_DISPLAY.filter(a => dados.kpis?.anos?.[a]);
+
+  main.innerHTML = `
+    <!-- CAMADA 1: KPIs -->
+    <section id="sec-kpis">
+      <div class="secao-titulo">Totais por ano <span style="color:var(--cinza-medio);font-size:10px;font-weight:400;text-transform:none">· passe o mouse para ver o ciclo completo</span></div>
+      <div class="kpi-grid" id="kpi-grid"></div>
+    </section>
+
+    <!-- CAMADA 2: Gráficos mensais -->
+    <section id="sec-graficos">
+      <div class="secao-titulo">Evolução mensal por ano</div>
+      <div class="graficos-grid" id="graficos-grid"></div>
+    </section>
+
+    <!-- CAMADA 3: Funções de governo -->
+    <section id="sec-funcoes">
+      <div class="secao-titulo">
+        ${anoFiltro === 'todos' ? 'Gastos por função de governo — todos os anos' : `Gastos por função de governo — ${anoFiltro}`}
+        <span style="color:var(--cinza-medio);font-size:10px;font-weight:400;text-transform:none">· clique para filtrar empenhos</span>
+      </div>
+      <div class="funcoes-lista" id="funcoes-lista"></div>
+    </section>
+
+    <!-- CAMADA 4: Empenhos -->
+    <section id="sec-empenhos">
+      <div class="empenhos-header">
+        <div class="secao-titulo" style="margin-bottom:0">
+          ${anoFiltro === 'todos' ? 'Maiores empenhos — todos os anos' : `Maiores empenhos — ${anoFiltro}`}
+        </div>
+        <div id="filtro-ativo-wrap"></div>
+      </div>
+      <div id="tabela-wrap"></div>
+    </section>
+  `;
+
+  renderKPIs(dados.kpis, anoFiltro);
+  renderGraficos(dados.mensal, anoFiltro, anosDisponiveis);
+  renderFuncoes(dados.funcoes, anoFiltro);
+  renderEmpenhos(dados.empenhos, anoFiltro, null);
+}
+
+// ============================================================
+// CAMADA 1 — KPI CARDS
+// ============================================================
+function renderKPIs(kpis, anoFiltro) {
+  const grid = document.getElementById('kpi-grid');
+  if (!kpis) { grid.innerHTML = vazio('Dados não disponíveis'); return; }
+
+  const anoAtual = new Date().getFullYear();
+  const anosRender = anoFiltro === 'todos' ? ANOS_DISPLAY : [parseInt(anoFiltro)];
+
+  grid.innerHTML = anosRender.map(ano => {
+    const d = kpis.anos?.[ano];
+    const isAtual = ano === anoAtual;
+
+    if (!d) return `
+      <div class="kpi-card kpi-vazio">
+        <div class="kpi-ano">${ano}</div>
+        <div class="kpi-valor">Sem dados</div>
+      </div>`;
+
+    const varPct = d.variacao_pct;
+    let varClass = 'neu', varIcon = '—', varTxt = 'sem comparativo';
+    if (varPct != null) {
+      if (varPct > 0) { varClass = 'pos'; varIcon = '▲'; varTxt = `${fmtPct(varPct)} vs ano anterior`; }
+      else if (varPct < 0) { varClass = 'neg'; varIcon = '▼'; varTxt = `${fmtPct(varPct)} vs ano anterior`; }
+      else { varTxt = 'igual ao ano anterior'; }
+    }
+
+    const [num, uni] = splitValor(d.empenhado);
+
+    return `
+      <div class="kpi-card ${isAtual ? 'ano-atual' : ''}">
+        <div class="kpi-ano">Total ${ano}${isAtual ? ' · atual' : ''}</div>
+        <div class="kpi-valor">${num} <span class="kpi-unidade">${uni}</span></div>
+        <div class="kpi-variacao ${varClass}">${varIcon} ${varTxt}</div>
+
+        <div class="kpi-tooltip">
+          <div class="tooltip-linha">
+            <span class="tooltip-label">Empenhado</span>
+            <span class="tooltip-valor">${fmtBRL(d.empenhado)}</span>
+          </div>
+          <div class="tooltip-linha">
+            <span class="tooltip-label">Liquidado</span>
+            <span class="tooltip-valor">
+              ${fmtBRL(d.liquidado)}
+              <span class="tooltip-pct pct-liq">${d.pct_liquidado}%</span>
+            </span>
+          </div>
+          <div class="tooltip-linha">
+            <span class="tooltip-label">Pago</span>
+            <span class="tooltip-valor">
+              ${fmtBRL(d.pago)}
+              <span class="tooltip-pct pct-pago">${d.pct_pago}%</span>
+            </span>
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function splitValor(v) {
+  if (v == null || isNaN(v)) return ['—', ''];
+  if (v >= 1_000_000) return [`R$ ${(v/1_000_000).toFixed(1).replace('.',',')}`, 'M'];
+  if (v >= 1_000)     return [`R$ ${Math.round(v/1_000)}`, 'k'];
+  return [`R$ ${Math.round(v)}`, ''];
+}
+
+// ============================================================
+// CAMADA 2 — GRÁFICOS MENSAIS
+// ============================================================
+function renderGraficos(mensal, anoFiltro, anosDisponiveis) {
+  const grid = document.getElementById('graficos-grid');
+  if (!mensal) { grid.innerHTML = vazio('Dados mensais não disponíveis'); return; }
+
+  const anos = anoFiltro === 'todos' ? anosDisponiveis.slice(0, 4) : [parseInt(anoFiltro)];
+
+  grid.innerHTML = anos.map(ano =>
+    `<div class="grafico-card">
+      <div class="grafico-header">
+        <div class="grafico-ano">${ano}</div>
+        <div>
+          <span class="grafico-total-label">Total</span>
+          <span class="grafico-total-valor" id="gtotal-${ano}">—</span>
+        </div>
+      </div>
+      <div class="grafico-container">
+        <canvas id="chart-${ano}"></canvas>
+      </div>
+    </div>`
+  ).join('');
+
+  anos.forEach(ano => {
+    const d = mensal.anos?.[ano];
+    if (!d) return;
+
+    const labels = MESES;
+    const emp  = MESES.map((_, i) => d[i+1]?.empenhado || 0);
+    const liq  = MESES.map((_, i) => d[i+1]?.liquidado || 0);
+    const pago = MESES.map((_, i) => d[i+1]?.pago || 0);
+
+    const total = emp.reduce((a, b) => a + b, 0);
+    document.getElementById(`gtotal-${ano}`).textContent = fmtBRL(total);
+
+    const ctx = document.getElementById(`chart-${ano}`)?.getContext('2d');
+    if (!ctx) return;
+
+    estado.charts[`chart-${ano}`] = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [
+          {
+            label: 'Empenhado',
+            data: emp,
+            borderColor: '#0057A8',
+            backgroundColor: 'rgba(0,87,168,.08)',
+            fill: true,
+            tension: .35,
+            pointRadius: 3,
+            pointHoverRadius: 5,
+            borderWidth: 2,
+          },
+          {
+            label: 'Liquidado',
+            data: liq,
+            borderColor: '#C8960C',
+            backgroundColor: 'transparent',
+            fill: false,
+            tension: .35,
+            pointRadius: 2,
+            pointHoverRadius: 4,
+            borderWidth: 1.5,
+            borderDash: [4,3],
+          },
+          {
+            label: 'Pago',
+            data: pago,
+            borderColor: '#1B6B3A',
+            backgroundColor: 'transparent',
+            fill: false,
+            tension: .35,
+            pointRadius: 2,
+            pointHoverRadius: 4,
+            borderWidth: 1.5,
+            borderDash: [2,2],
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: '#2C3E50',
+            padding: 10,
+            callbacks: {
+              label: ctx => ` ${ctx.dataset.label}: ${fmtBRL(ctx.raw)}`
+            }
+          }
+        },
+        scales: {
+          x: {
+            grid: { display: false },
+            ticks: { font: { size: 10 }, color: '#6B7A8D' }
+          },
+          y: {
+            grid: { color: 'rgba(0,0,0,.04)' },
+            ticks: {
+              font: { size: 10 }, color: '#6B7A8D',
+              callback: v => fmtBRL(v)
+            }
+          }
+        }
+      }
+    });
+  });
+}
+
+// ============================================================
+// CAMADA 3 — FUNÇÕES DE GOVERNO
+// ============================================================
+function renderFuncoes(funcoes, anoFiltro) {
+  const lista = document.getElementById('funcoes-lista');
+  if (!funcoes) { lista.innerHTML = vazio('Dados não disponíveis'); return; }
+
+  // Consolidar anos se "todos"
+  let itens = [];
+  if (anoFiltro === 'todos') {
+    const mapa = {};
+    ANOS_DISPLAY.forEach(ano => {
+      (funcoes.anos?.[ano] || []).forEach(f => {
+        if (!mapa[f.funcao]) mapa[f.funcao] = { empenhado:0, liquidado:0, pago:0 };
+        mapa[f.funcao].empenhado += f.empenhado;
+        mapa[f.funcao].liquidado += f.liquidado;
+        mapa[f.funcao].pago      += f.pago;
+      });
+    });
+    itens = Object.entries(mapa).map(([fn, v]) => ({
+      funcao: fn, ...v,
+      pct_liquidado: v.empenhado > 0 ? v.liquidado/v.empenhado*100 : 0,
+      pct_pago:      v.empenhado > 0 ? v.pago/v.empenhado*100 : 0,
+    })).sort((a,b) => b.empenhado - a.empenhado);
+  } else {
+    itens = funcoes.anos?.[parseInt(anoFiltro)] || [];
+  }
+
+  if (!itens.length) { lista.innerHTML = vazio('Sem dados para este período'); return; }
+
+  lista.innerHTML = itens.map(f => `
+    <div class="funcao-item" data-funcao="${escHtml(f.funcao)}"
+         onclick="filtrarFuncao('${escHtml(f.funcao).replace(/'/g,"\\'")}')">
+      <div class="funcao-topo">
+        <div class="funcao-nome">${f.funcao}</div>
+        <div class="funcao-valores">
+          <div class="funcao-valor-item">
+            <div class="funcao-valor-label">Empenhado</div>
+            <div class="funcao-valor-num v-emp">${fmtBRL(f.empenhado)}</div>
+          </div>
+          <div class="funcao-valor-item">
+            <div class="funcao-valor-label">Liquidado</div>
+            <div class="funcao-valor-num v-liq">${fmtBRL(f.liquidado)}</div>
+          </div>
+          <div class="funcao-valor-item">
+            <div class="funcao-valor-label">Pago</div>
+            <div class="funcao-valor-num v-pago">${fmtBRL(f.pago)}</div>
+          </div>
+        </div>
+      </div>
+      <div class="funcao-barra-wrap">
+        <div class="funcao-barra-liq" style="width:${Math.min(f.pct_liquidado,100).toFixed(1)}%"></div>
+        <div class="funcao-barra-pago" style="width:${Math.min(f.pct_pago,100).toFixed(1)}%"></div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function filtrarFuncao(funcao) {
+  if (estado.funcaoFiltro === funcao) {
+    estado.funcaoFiltro = null;
+  } else {
+    estado.funcaoFiltro = funcao;
+  }
+
+  // Atualizar visual dos itens
+  document.querySelectorAll('.funcao-item').forEach(el => {
+    el.classList.toggle('ativo', el.dataset.funcao === estado.funcaoFiltro);
+  });
+
+  renderEmpenhos(estado.dados.empenhos, estado.anoFiltro, estado.funcaoFiltro);
+}
+
+// ============================================================
+// CAMADA 4 — TABELA DE EMPENHOS
+// ============================================================
+function renderEmpenhos(empenhos, anoFiltro, funcaoFiltro) {
+  const wrap = document.getElementById('tabela-wrap');
+  const filtroWrap = document.getElementById('filtro-ativo-wrap');
+
+  if (funcaoFiltro) {
+    filtroWrap.innerHTML = `
+      <div class="empenhos-filtro-ativo">
+        ${escHtml(funcaoFiltro)}
+        <button onclick="filtrarFuncao('${escHtml(funcaoFiltro).replace(/'/g,"\\'")}')">×</button>
+      </div>`;
+  } else {
+    if (filtroWrap) filtroWrap.innerHTML = '';
+  }
+
+  if (!empenhos) { wrap.innerHTML = vazio('Dados não disponíveis'); return; }
+
+  // Consolidar anos
+  let linhas = [];
+  if (anoFiltro === 'todos') {
+    ANOS_DISPLAY.forEach(ano => {
+      (empenhos.anos?.[ano] || []).forEach(e => linhas.push({...e, ano}));
+    });
+  } else {
+    (empenhos.anos?.[parseInt(anoFiltro)] || []).forEach(e => linhas.push({...e, ano: parseInt(anoFiltro)}));
+  }
+
+  // Filtrar por função
+  if (funcaoFiltro) {
+    linhas = linhas.filter(l => l.funcao === funcaoFiltro);
+  }
+
+  // Ordenar por empenhado desc e limitar
+  linhas.sort((a,b) => b.empenhado - a.empenhado);
+  const total = linhas.length;
+  linhas = linhas.slice(0, 100);
+
+  if (!linhas.length) {
+    wrap.innerHTML = `<div class="tabela-wrap">${vazio('Nenhum empenho encontrado para os filtros selecionados')}</div>`;
+    return;
+  }
+
+  const statusLabel = { quitado:'Quitado', liquidado:'Liquidado', empenhado:'Empenhado', em_aberto:'Em aberto' };
+
+  wrap.innerHTML = `
+    <div class="tabela-wrap" style="overflow-x:auto">
+      <table>
+        <thead>
+          <tr>
+            <th>Nº Empenho</th>
+            <th>Data</th>
+            <th>Função</th>
+            <th>Descrição</th>
+            <th class="num">Empenhado</th>
+            <th class="num">Liquidado</th>
+            <th class="num">Pago</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${linhas.map(e => `
+            <tr title="${escHtml(e.descricao || '')}">
+              <td style="font-weight:600;white-space:nowrap">${escHtml(e.nr_empenho || '—')}</td>
+              <td style="white-space:nowrap;color:var(--cinza-medio)">${formatarData(e.dt_empenho)}</td>
+              <td style="max-width:140px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"
+                  title="${escHtml(e.funcao || '')}">${escHtml(e.funcao || '—')}</td>
+              <td class="td-descricao" title="${escHtml(e.descricao || '')}">${escHtml(e.descricao || '—')}</td>
+              <td class="num emp-val">${fmtBRL(e.empenhado)}</td>
+              <td class="num liq-val">${fmtBRL(e.liquidado)}</td>
+              <td class="num pago-val">${fmtBRL(e.pago)}</td>
+              <td><span class="badge-status s-${e.status}">${statusLabel[e.status] || e.status}</span></td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+      ${total > 100 ? `<div style="padding:10px 16px;font-size:11px;color:var(--cinza-medio);border-top:1px solid var(--cinza-claro)">
+        Exibindo 100 de ${total} empenhos. Refine o filtro por função para ver mais.
+      </div>` : ''}
+    </div>`;
+}
+
+// ============================================================
+// UTILITÁRIOS
+// ============================================================
+function vazio(msg) {
+  return `<div class="estado-vazio"><div class="icone">📊</div><p>${msg}</p></div>`;
+}
+
+function renderErro(msg) {
+  document.getElementById('main-content').innerHTML =
+    `<div class="estado-vazio"><div class="icone">⚠️</div><p>${msg}</p></div>`;
+}
+
+function escHtml(str) {
+  if (!str) return '';
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function formatarData(dt) {
+  if (!dt) return '—';
+  const s = String(dt);
+  // YYYY-MM-DD → DD/MM/YYYY
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) return `${m[3]}/${m[2]}/${m[1]}`;
+  return s.slice(0,10);
+}
+
+// ============================================================
+// START
+// ============================================================
+init();
+</script>
+</body>
+</html>
