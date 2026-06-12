@@ -515,7 +515,7 @@ async function atualizarFiltrosSecundarios() {
 
   // Exercício — dinâmico, só anos com dados, sem 2020
   const selEx = document.getElementById('sel-exercicio');
-  const anosComDados = ANOS_PADRAO.filter(a => kpis?.anos?.[a]);
+  const anosComDados = ANOS_PADRAO.filter(a => kpis?.anos?.[a] || kpis?.anos?.[String(a)]);
   estado.anosDisponiveis = anosComDados;
   selEx.innerHTML = `<option value="todos">Todos os anos</option>` +
     anosComDados.map(a => `<option value="${a}">${a}</option>`).join('');
@@ -648,7 +648,7 @@ function renderKPIs(kpis, exercicio, anosRender) {
   const anosShow  = exercicio === 'todos' ? anosRender : [parseInt(exercicio)];
 
   grid.innerHTML = anosShow.map(ano => {
-    const d = kpis.anos?.[ano];
+    const d = kpis.anos?.[ano] ?? kpis.anos?.[String(ano)];
     const isAtual = ano === anoAtual;
 
     if (!d) return `
@@ -702,7 +702,7 @@ function renderGraficos(mensal, exercicio, anosRender) {
     </div>`).join('');
 
   anos.forEach(ano => {
-    const d = mensal.anos?.[ano];
+    const d = mensal.anos?.[ano] ?? mensal.anos?.[String(ano)];
     if (!d) return;
     const emp  = MESES.map((_,i) => d[i+1]?.empenhado || 0);
     const liq  = MESES.map((_,i) => d[i+1]?.liquidado || 0);
@@ -749,7 +749,7 @@ function renderFuncoes(funcoes, exercicio) {
 
   const mapa = {};
   anos.forEach(ano => {
-    (funcoes.anos?.[ano] || []).forEach(f => {
+    (funcoes.anos?.[ano] ?? funcoes.anos?.[String(ano)] || []).forEach(f => {
       if (!mapa[f.funcao]) mapa[f.funcao] = {empenhado:0, liquidado:0, pago:0};
       mapa[f.funcao].empenhado += f.empenhado;
       mapa[f.funcao].liquidado += f.liquidado;
@@ -775,7 +775,7 @@ function renderNatureza(natureza, exercicio) {
   const anos = exercicio === 'todos' ? ANOS_PADRAO : [parseInt(exercicio)];
   const mapa = {};
   anos.forEach(ano => {
-    (natureza.anos?.[ano] || []).forEach(n => {
+    (natureza.anos?.[ano] ?? natureza.anos?.[String(ano)] || []).forEach(n => {
       if (!mapa[n.natureza]) mapa[n.natureza] = {empenhado:0, liquidado:0, pago:0};
       mapa[n.natureza].empenhado += n.empenhado;
       mapa[n.natureza].liquidado += n.liquidado;
@@ -845,7 +845,7 @@ function renderEmpenhos(empenhos, exercicio, filtroChave, filtroTipo) {
   const anos = exercicio === 'todos' ? ANOS_PADRAO : [parseInt(exercicio)];
   let linhas = [];
   anos.forEach(ano => {
-    (empenhos.anos?.[ano] || []).forEach(e => linhas.push({...e, ano}));
+    (empenhos.anos?.[ano] ?? empenhos.anos?.[String(ano)] || []).forEach(e => linhas.push({...e, ano}));
   });
 
   // Filtrar por funcao se vier de Secretarias, ou sem filtro específico por natureza
