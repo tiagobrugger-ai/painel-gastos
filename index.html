@@ -472,11 +472,11 @@ async function init() {
   const meta = await fetchJSON(`${DATA_BASE}/meta.json`);
   if (meta) {
     document.getElementById('hdr-atualizado').textContent =
-      `Atualizado em ${meta.gerado_em?.slice(0,10) || '—'}`;
+      `Atualizado em ${meta.gerado_em && meta.gerado_em.slice(0,10) || '—'}`;
   }
 
   const municipios = await fetchJSON(`${DATA_BASE}/municipios.json`);
-  if (!municipios?.length) { renderErro('Não foi possível carregar a lista de municípios.'); return; }
+  if (!municipios || !municipios.length) { renderErro('Não foi possível carregar a lista de municípios.'); return; }
 
   const selMun = document.getElementById('sel-municipio');
   selMun.innerHTML = municipios.map(m => `<option value="${m.slug}">${m.nome}</option>`).join('');
@@ -515,7 +515,7 @@ async function atualizarFiltrosSecundarios() {
 
   // Exercício — dinâmico, só anos com dados, sem 2020
   const selEx = document.getElementById('sel-exercicio');
-  const anosComDados = ANOS_PADRAO.filter(a => kpis?.anos?.[a] || kpis?.anos?.[String(a)]);
+  const anosComDados = ANOS_PADRAO.filter(a => kpis && kpis.anos && (kpis.anos[a] || kpis.anos[String(a)]));
   estado.anosDisponiveis = anosComDados;
   selEx.innerHTML = `<option value="todos">Todos os anos</option>` +
     anosComDados.map(a => `<option value="${a}">${a}</option>`).join('');
@@ -527,7 +527,7 @@ async function atualizarFiltrosSecundarios() {
 
   // Órgão — dinâmico por município
   const selOrg = document.getElementById('sel-orgao');
-  const lista = orgaos?.orgaos || [];
+  const lista = orgaos && orgaos.orgaos || [];
   selOrg.innerHTML = `<option value="todos">Todos</option>` +
     lista.map(o => `<option value="${escHtml(o)}">${escHtml(o)}</option>`).join('');
   selOrg.value = 'todos';
@@ -556,7 +556,7 @@ async function carregarDados(slug) {
 async function renderPainel() {
   const main = document.getElementById('main-content');
   main.innerHTML = `<div class="loading"><div class="spinner"></div> Carregando…</div>`;
-  Object.values(estado.charts).forEach(c => c?.destroy());
+  Object.values(estado.charts).forEach(c => { if(c) c.destroy(); });
   estado.charts = {};
 
   const slug = estado.municipio;
@@ -648,7 +648,7 @@ function renderKPIs(kpis, exercicio, anosRender) {
   const anosShow  = exercicio === 'todos' ? anosRender : [parseInt(exercicio)];
 
   grid.innerHTML = anosShow.map(ano => {
-    const d = kpis.anos?.[ano] ?? kpis.anos?.[String(ano)];
+    const d = (kpis.anos && (kpis.anos[ano] || kpis.anos[String(ano)]));
     const isAtual = ano === anoAtual;
 
     if (!d) return `
@@ -702,14 +702,14 @@ function renderGraficos(mensal, exercicio, anosRender) {
     </div>`).join('');
 
   anos.forEach(ano => {
-    const d = mensal.anos?.[ano] ?? mensal.anos?.[String(ano)];
+    const d = (mensal.anos && (mensal.anos[ano] || mensal.anos[String(ano)]));
     if (!d) return;
-    const emp  = MESES.map((_,i) => d[i+1]?.empenhado || 0);
-    const liq  = MESES.map((_,i) => d[i+1]?.liquidado || 0);
-    const pago = MESES.map((_,i) => d[i+1]?.pago || 0);
+    const emp  = MESES.map((_,i) => (d[i+1] ? d[i+1].empenhado : 0) || 0);
+    const liq  = MESES.map((_,i) => (d[i+1] ? d[i+1].liquidado : 0) || 0);
+    const pago = MESES.map((_,i) => (d[i+1] ? d[i+1].pago : 0) || 0);
     const total = emp.reduce((a,b)=>a+b,0);
     document.getElementById(`gtotal-${ano}`).textContent = fmtBRL(total);
-    const ctx = document.getElementById(`chart-${ano}`)?.getContext('2d');
+    const ctx = document.getElementById(`chart-${ano}`) ? document.getElementById(`chart-${ano}`).getContext('2d') : null;
     if (!ctx) return;
     estado.charts[`chart-${ano}`] = new Chart(ctx, {
       type: 'line',
@@ -749,7 +749,7 @@ function renderFuncoes(funcoes, exercicio) {
 
   const mapa = {};
   anos.forEach(ano => {
-    (funcoes.anos?.[ano] ?? funcoes.anos?.[String(ano)] || []).forEach(f => {
+    ((funcoes.anos && (funcoes.anos[ano] || funcoes.anos[String(ano)])) || []).forEach(f => {
       if (!mapa[f.funcao]) mapa[f.funcao] = {empenhado:0, liquidado:0, pago:0};
       mapa[f.funcao].empenhado += f.empenhado;
       mapa[f.funcao].liquidado += f.liquidado;
@@ -775,7 +775,7 @@ function renderNatureza(natureza, exercicio) {
   const anos = exercicio === 'todos' ? ANOS_PADRAO : [parseInt(exercicio)];
   const mapa = {};
   anos.forEach(ano => {
-    (natureza.anos?.[ano] ?? natureza.anos?.[String(ano)] || []).forEach(n => {
+    ((natureza.anos && (natureza.anos[ano] || natureza.anos[String(ano)])) || []).forEach(n => {
       if (!mapa[n.natureza]) mapa[n.natureza] = {empenhado:0, liquidado:0, pago:0};
       mapa[n.natureza].empenhado += n.empenhado;
       mapa[n.natureza].liquidado += n.liquidado;
@@ -845,7 +845,7 @@ function renderEmpenhos(empenhos, exercicio, filtroChave, filtroTipo) {
   const anos = exercicio === 'todos' ? ANOS_PADRAO : [parseInt(exercicio)];
   let linhas = [];
   anos.forEach(ano => {
-    (empenhos.anos?.[ano] ?? empenhos.anos?.[String(ano)] || []).forEach(e => linhas.push({...e, ano}));
+    ((empenhos.anos && (empenhos.anos[ano] || empenhos.anos[String(ano)])) || []).forEach(e => linhas.push({...e, ano}));
   });
 
   // Filtrar por funcao se vier de Secretarias, ou sem filtro específico por natureza
